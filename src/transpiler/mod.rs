@@ -45,6 +45,7 @@ fn transpile_node_recursive(node: Node, source: &str, out: &mut String, found_cl
             // Wrap in struct/impl
             let members_code = out.clone();
             out.clear();
+            out.push_str("#[allow(unused_imports)]\n");
             out.push_str("use rusty_framework::prelude::*;\n\n");
             out.push_str("#[allow(non_snake_case)]\n");
             out.push_str("#[allow(unused_variables)]\n");

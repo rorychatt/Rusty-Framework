@@ -1,8 +1,8 @@
 namespace Rusty.Framework;
 
 public class ViewBase {
-    protected Signal<T> UseState<T>(T initial) => new Signal<T>(initial);
-    public virtual object Build() => null;
+    public static Signal<T> UseState<T>(T initialValue) => new Signal<T>(initialValue);
+    public virtual object Build() => new object();
 }
 
 public class Signal<T> {

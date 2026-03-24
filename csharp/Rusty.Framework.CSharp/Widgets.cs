@@ -1,14 +1,15 @@
 namespace Rusty.Framework.Widgets;
 
 public static class Text {
-    public static object H2(string content) => null;
-    public static object Block(string content) => null;
-    public static object Markdown(string content) => null;
+    public static object H2(string content) => new object();
+    public static object Block(string content) => new object();
+    public static object Markdown(string content) => new object();
 }
 
 public static class Layout {
     public static LayoutBuilder Center() => new LayoutBuilder();
     public static LayoutBuilder Vertical() => new LayoutBuilder();
+    public static LayoutBuilder Horizontal() => new LayoutBuilder();
 }
 
 public class LayoutBuilder {
@@ -19,7 +20,7 @@ public class LayoutBuilder {
 }
 
 public static class Size {
-    public static object Units(int val) => null;
+    public static string Units(double value) => "";
 }
 
 public class Card {
@@ -33,5 +34,5 @@ public class Confetti {
 
 public class Logo {}
 public class Separator {
-    public object ToInput() => null;
+    public object ToInput() => new object();
 }
