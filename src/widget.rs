@@ -55,6 +55,33 @@ impl Widget for Separator {
 }
 
 #[derive(Debug)]
+pub struct Logo;
+
+impl Widget for Logo {
+    fn serialize(&self) -> Value {
+        serde_json::json!({ "type": "Logo" })
+    }
+    fn as_any(&self) -> &dyn std::any::Any { self }
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any { self }
+}
+
+#[derive(Debug)]
+pub struct Confetti {
+    pub child: Box<dyn Widget>,
+}
+
+impl Widget for Confetti {
+    fn serialize(&self) -> Value {
+        serde_json::json!({
+            "type": "Confetti",
+            "child": self.child.serialize()
+        })
+    }
+    fn as_any(&self) -> &dyn std::any::Any { self }
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any { self }
+}
+
+#[derive(Debug)]
 pub struct Layout {
     pub children: Vec<Box<dyn Widget>>,
     pub layout_type: String,
