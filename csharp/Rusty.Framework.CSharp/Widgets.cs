@@ -48,16 +48,18 @@ namespace Rusty.Framework.Widgets
 
     public class Logo : Widget { }
     public class Separator : Widget { }
-    public class Confetti : Widget 
+    public class Confetti : Widget
     {
         public Confetti(Widget child) { }
     }
-    public class TextInput : Widget {
+    public class TextInput : Widget
+    {
         public TextInput(Signal<string> value) { }
         public TextInput Placeholder(string p) => this;
     }
 
-    public static class SignalExtensions {
+    public static class SignalExtensions
+    {
         public static Widget ToInput(this Signal<string> signal, string placeholder = "") => null;
     }
 
