@@ -15,8 +15,7 @@ pub fn transpile_string(source: &str) -> Result<String, Box<dyn std::error::Erro
     let tree = parser.parse(source, None).ok_or("Failed to parse")?;
     
     let mut out = String::new();
-    out.push_str("#![allow(non_snake_case)]\n");
-    out.push_str("use rusty_framework::prelude::*;\n\n");
+    // out.push_str("use rusty_framework::prelude::*;\n\n"); // Removed to avoid duplicate in main.rs include
     
     let mut found = false;
     transpile_node_recursive(tree.root_node(), source, &mut out, &mut found)?;
@@ -36,6 +35,7 @@ fn transpile_node_recursive(node: Node, source: &str, out: &mut String, found_cl
         if let Some(n) = name_node {
             let class_name = &source[n.start_byte()..n.end_byte()];
             *found_class = true;
+            out.push_str(&format!("#[allow(non_snake_case)]\n"));
             out.push_str(&format!("pub struct {};\n\n", class_name));
             out.push_str(&format!("impl {} {{\n", class_name));
             for i in 0..node.child_count() {
@@ -191,9 +191,6 @@ fn transpile_expr(node: Node, source: &str, out: &mut String, indent: usize) {
                  out.push_str("(");
                  transpile_args(args, source, out, false);
                  out.push_str(").is_empty()");
-            }
-            else if func.ends_with(".ToInput") {
-                out.push_str("Separator"); 
             }
             else { out.push_str("Separator"); }
         }
