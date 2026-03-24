@@ -1,1 +1,9 @@
-Console.WriteLine("This is the C# project entry point, but all the logic stays in Rust!");
+using System.Diagnostics;
+
+var root = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", ".."));
+var psi = new ProcessStartInfo("cargo", "run") {
+    WorkingDirectory = root,
+    UseShellExecute = false
+};
+
+Process.Start(psi)?.WaitForExit();

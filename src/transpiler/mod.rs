@@ -120,6 +120,7 @@ fn process_method(member: Node, source: &str, out: &mut String, signals: &[Strin
     if let Some(m_node) = m_name_node {
         let method_name = &source[m_node.start_byte()..m_node.end_byte()];
         if method_name == "Build" {
+            out.push_str("    #[allow(non_snake_case)]\n");
             out.push_str("    pub fn build() -> Box<dyn Widget> {\n");
             for s in signals {
                 out.push_str(&format!("        let {} = Signal::use_state(\"\".to_string());\n", s));
