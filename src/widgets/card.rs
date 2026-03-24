@@ -18,10 +18,27 @@ impl Card {
 
 impl Widget for Card {
     fn serialize(&self) -> serde_json::Value {
+        let mut children = Vec::new();
+        if let Some(child) = &self.child {
+            children.push(serde_json::json!({
+                "type": "Ivy.Slot",
+                "id": uuid::Uuid::new_v4().to_string(),
+                "props": {
+                    "name": "Content"
+                },
+                "events": [],
+                "children": [child.serialize()]
+            }));
+        }
+
         serde_json::json!({
-            "type": "card",
-            "width": self.width,
-            "child": self.child.as_ref().map(|c| c.serialize())
+            "type": "Ivy.Card",
+            "id": uuid::Uuid::new_v4().to_string(),
+            "props": {
+                "width": self.width.as_ref().map(|w| format!("Units:{}", w))
+            },
+            "events": [],
+            "children": children
         })
     }
 }

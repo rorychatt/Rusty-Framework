@@ -7,23 +7,42 @@ pub struct Text {
 }
 
 impl Text {
+    pub fn h1(content: String) -> Self {
+        Self { content, kind: "H1".to_string() }
+    }
     pub fn h2(content: String) -> Self {
-        Self { content, kind: "h2".to_string() }
+        Self { content, kind: "H2".to_string() }
     }
     pub fn block(content: String) -> Self {
-        Self { content, kind: "block".to_string() }
+        Self { content, kind: "Block".to_string() }
     }
     pub fn markdown(content: String) -> Self {
-        Self { content, kind: "markdown".to_string() }
+        Self { content, kind: "Markdown".to_string() }
     }
 }
 
 impl Widget for Text {
     fn serialize(&self) -> serde_json::Value {
+        if self.kind == "Markdown" {
+            return serde_json::json!({
+                "type": "Ivy.Markdown",
+                "id": uuid::Uuid::new_v4().to_string(),
+                "props": {
+                    "content": self.content
+                },
+                "events": [],
+                "children": []
+            });
+        }
         serde_json::json!({
-            "type": "text",
-            "kind": self.kind,
-            "content": self.content
+            "type": "Ivy.TextBlock",
+            "id": uuid::Uuid::new_v4().to_string(),
+            "props": {
+                "content": self.content,
+                "variant": self.kind
+            },
+            "events": [],
+            "children": []
         })
     }
 }

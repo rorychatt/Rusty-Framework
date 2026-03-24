@@ -10,11 +10,12 @@ public class HelloApp : ViewBase {
         Layout.Center()
         | (new Card(
             Layout.Vertical().Gap(6).Padding(2)
-            | new Confetti(new Logo())
+            | new Logo()
             | Text.H2($"Hello {(string.IsNullOrEmpty(nameState.Value) ? "there" : nameState.Value)}!")
+            | nameState.ToInput(placeholder: "What is your name?")
             | Text.Block("Welcome to the fantastic world of Rusty. Let's build something amazing together!")
             | new Separator()
             | new Separator()
             | Text.Markdown("You'd be a hero to us if you could ⭐ us on [Github](https://github.com/Ivy-Interactive/Ivy-Framework)")
-          ).Width(500));
+          ).Width(100));
 }

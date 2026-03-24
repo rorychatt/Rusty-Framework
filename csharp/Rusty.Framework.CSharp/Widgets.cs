@@ -1,38 +1,68 @@
-namespace Rusty.Framework.Widgets;
+#nullable disable
 
-public static class Text {
-    public static object H2(string content) => new object();
-    public static object Block(string content) => new object();
-    public static object Markdown(string content) => new object();
+using System;
+
+namespace Rusty.Framework
+{
+    public class Signal<T>
+    {
+        public T Value { get; set; }
+        public Signal(T initial) { Value = initial; }
+    }
+
+    public abstract class ViewBase
+    {
+        public abstract object Build();
+    }
 }
 
-public static class Layout {
-    public static LayoutBuilder Center() => new LayoutBuilder();
-    public static LayoutBuilder Vertical() => new LayoutBuilder();
-    public static LayoutBuilder Horizontal() => new LayoutBuilder();
-}
+namespace Rusty.Framework.Widgets
+{
+    public abstract class Widget
+    {
+        public static Layout operator |(Widget left, Widget right) => null;
+        public static Layout operator |(Layout left, Widget right) => null;
+    }
 
-public class LayoutBuilder {
-    public static LayoutBuilder operator |(LayoutBuilder left, object right) => left;
-    public LayoutBuilder Gap(int units) => this;
-    public LayoutBuilder Padding(int units) => this;
-    public LayoutBuilder Width(object size) => this;
-}
+    public class Layout : Widget
+    {
+        public static Layout Center() => null;
+        public static Layout Vertical() => null;
+        public Layout Gap(double pixels) => this;
+        public Layout Padding(double pixels) => this;
+    }
 
-public static class Size {
-    public static string Units(double value) => "";
-}
+    public class Card : Widget
+    {
+        public Card(Widget child) { }
+        public Card Width(double pixels) => this;
+    }
 
-public class Card {
-    public Card(object child) {}
-    public Card Width(object size) => this;
-}
+    public static class Text
+    {
+        public static Widget H1(string text) => null;
+        public static Widget H2(string text) => null;
+        public static Widget Block(string text) => null;
+        public static Widget Markdown(string text) => null;
+    }
 
-public class Confetti {
-    public Confetti(object child) {}
-}
+    public class Logo : Widget { }
+    public class Separator : Widget { }
+    public class Confetti : Widget 
+    {
+        public Confetti(Widget child) { }
+    }
+    public class TextInput : Widget {
+        public TextInput(Signal<string> value) { }
+        public TextInput Placeholder(string p) => this;
+    }
 
-public class Logo {}
-public class Separator {
-    public object ToInput() => new object();
+    public static class SignalExtensions {
+        public static Widget ToInput(this Signal<string> signal, string placeholder = "") => null;
+    }
+
+    public static class Widgets
+    {
+        public static Widget Center(Widget child) => null;
+    }
 }

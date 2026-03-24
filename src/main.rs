@@ -1,14 +1,12 @@
 use rusty_framework::prelude::*;
+use std::sync::Arc;
 
-// This macro includes the generated Rust code from the build script.
+// This will be replaced by the build script with 'mod generated_hello;'
 include!(concat!(env!("OUT_DIR"), "/generated_hello.rs"));
 
-fn main() {
-    println!("--- RUSTY NATIVE APP ---");
-    
-    // Boot the HelloApp (transpiled from C#)
-    let app = HelloApp::build();
-    
-    println!("Serialized UI from HelloApp.cs:");
-    println!("{}", serde_json::to_string_pretty(&app.serialize()).unwrap());
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let app = Arc::new(HelloApp::new());
+    rusty_framework::server::start_server(app).await;
+    Ok(())
 }

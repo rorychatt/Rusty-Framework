@@ -1,4 +1,4 @@
-use crate::widgets::{Widget, Text, Card, Logo, Separator, Confetti};
+use crate::widgets::{Widget, Text, Card, Logo, Separator, Confetti, TextInput};
 
 #[derive(Debug)]
 pub struct Layout {
@@ -24,11 +24,16 @@ impl Layout {
 impl Widget for Layout {
     fn serialize(&self) -> serde_json::Value {
         serde_json::json!({
-            "type": "layout",
-            "centering": self.centering,
-            "gap": self.gap,
-            "padding": self.padding,
-            "width": self.width,
+            "type": "Ivy.StackLayout",
+            "id": uuid::Uuid::new_v4().to_string(),
+            "props": {
+                "centering": self.centering,
+                "align": if self.centering { Some("Center") } else { None },
+                "gap": self.gap,
+                "padding": self.padding.to_string(),
+                "width": self.width.map(|w| format!("Units:{}", w))
+            },
+            "events": [],
             "children": self.children.iter().map(|c| c.serialize()).collect::<Vec<_>>()
         })
     }
@@ -77,6 +82,14 @@ impl std::ops::BitOr<Separator> for Layout {
 impl std::ops::BitOr<Confetti> for Layout {
     type Output = Layout;
     fn bitor(mut self, rhs: Confetti) -> Self::Output {
+        self.children.push(Box::new(rhs));
+        self
+    }
+}
+
+impl std::ops::BitOr<TextInput> for Layout {
+    type Output = Layout;
+    fn bitor(mut self, rhs: TextInput) -> Self::Output {
         self.children.push(Box::new(rhs));
         self
     }

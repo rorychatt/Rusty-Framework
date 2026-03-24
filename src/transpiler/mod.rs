@@ -47,13 +47,26 @@ fn transpile_node_recursive(node: Node, source: &str, out: &mut String, found_cl
             out.clear();
             out.push_str("#[allow(unused_imports)]\n");
             out.push_str("use rusty_framework::prelude::*;\n\n");
-            out.push_str("#[allow(non_snake_case)]\n");
-            out.push_str("#[allow(unused_variables)]\n");
-            out.push_str(&format!("pub struct {};\n\n", class_name));
-            out.push_str(&format!("impl {} {{\n", class_name));
-            for s in signals {
-                out.push_str(&format!("        // Signal placeholder for {}\n", s));
+            out.push_str(&format!("pub struct {} {{\n", class_name));
+            for s in signals.iter() {
+                out.push_str(&format!("    pub {}: Signal<String>,\n", s));
             }
+            out.push_str("}\n\n");
+            out.push_str(&format!("impl {} {{\n", class_name));
+            out.push_str("    pub fn new() -> Self {\n");
+            out.push_str("        Self {\n");
+            for s in signals.iter() {
+                out.push_str(&format!("            {}: Signal::use_state(\"{}\".to_string(), \"\".to_string()),\n", s, s));
+            }
+            out.push_str("        }\n");
+            out.push_str("    }\n");
+            out.push_str("}\n\n");
+            out.push_str(&format!("impl IvyApp for {} {{\n", class_name));
+            out.push_str("    fn update_state(&self, signal_id: &str, value: &str) {\n");
+            for s in signals.iter() {
+                out.push_str(&format!("        if signal_id == \"{}\" {{ self.{}.set(value.to_string()); }}\n", s, s));
+            }
+            out.push_str("    }\n\n");
             out.push_str(&members_code);
             out.push_str("}\n");
         }
@@ -121,9 +134,9 @@ fn process_method(member: Node, source: &str, out: &mut String, signals: &[Strin
         let method_name = &source[m_node.start_byte()..m_node.end_byte()];
         if method_name == "Build" {
             out.push_str("    #[allow(non_snake_case)]\n");
-            out.push_str("    pub fn build() -> Box<dyn Widget> {\n");
+            out.push_str("    fn build(&self) -> Box<dyn Widget> {\n");
             for s in signals {
-                out.push_str(&format!("        let {} = Signal::use_state(\"\".to_string());\n", s));
+                out.push_str(&format!("        let {} = &self.{};\n", s, s));
             }
             for k in 0..member.child_count() {
                 let sub = member.child(k).unwrap();
@@ -229,12 +242,24 @@ fn transpile_expr(node: Node, source: &str, out: &mut String, indent: usize) {
                  transpile_args(args, source, out, false);
                  out.push_str(")");
             }
-            else if func.ends_with(".Gap") || func.ends_with(".Padding") || func.ends_with(".Width") {
-                 let method = func.split('.').last().unwrap().to_lowercase();
-                 transpile_expr(func_node.child(0).unwrap(), source, out, indent);
-                 out.push_str(&format!(".{}(", method));
-                 transpile_args(args, source, out, true);
-                 out.push_str(")");
+            else if func.ends_with(".Gap") || func.ends_with(".Padding") || func.ends_with(".Width") || func.ends_with(".ToInput") {
+                 let method = func.split('.').last().unwrap();
+                 if method == "ToInput" {
+                     out.push_str("TextInput::new(");
+                     transpile_expr(func_node.child(0).unwrap(), source, out, indent);
+                     out.push_str(".clone())");
+                     if args.child_count() > 2 {
+                          out.push_str(".placeholder(");
+                          transpile_args(args, source, out, false);
+                          out.push_str(")");
+                     }
+                 } else {
+                     let m = method.to_lowercase();
+                     transpile_expr(func_node.child(0).unwrap(), source, out, indent);
+                     out.push_str(&format!(".{}(", m));
+                     transpile_args(args, source, out, true);
+                     out.push_str(")");
+                 }
             }
             else if func == "Size.Units" { transpile_args(args, source, out, true); }
             else if func == "string.IsNullOrEmpty" {
