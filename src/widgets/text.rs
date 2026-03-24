@@ -7,18 +7,13 @@ pub struct Text {
 }
 
 impl Text {
-    pub fn h1(content: String) -> Self {
-        Self { content, kind: "H1".to_string() }
-    }
-    pub fn h2(content: String) -> Self {
-        Self { content, kind: "H2".to_string() }
-    }
-    pub fn block(content: String) -> Self {
-        Self { content, kind: "Block".to_string() }
-    }
-    pub fn markdown(content: String) -> Self {
-        Self { content, kind: "Markdown".to_string() }
-    }
+    pub fn h1(content: String) -> Self { Self { content, kind: "H1".to_string() } }
+    pub fn h2(content: String) -> Self { Self { content, kind: "H2".to_string() } }
+    pub fn h3(content: String) -> Self { Self { content, kind: "H3".to_string() } }
+    pub fn p(content: String) -> Self { Self { content, kind: "P".to_string() } }
+    pub fn monospaced(content: String) -> Self { Self { content, kind: "Monospaced".to_string() } }
+    pub fn block(content: String) -> Self { Self { content, kind: "Block".to_string() } }
+    pub fn markdown(content: String) -> Self { Self { content, kind: "Markdown".to_string() } }
 }
 
 impl Widget for Text {

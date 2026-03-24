@@ -63,3 +63,49 @@ impl Widget for Confetti {
         })
     }
 }
+
+#[derive(Debug)]
+pub struct Spacer {
+    pub width: Option<f32>,
+    pub height: Option<f32>,
+}
+impl Spacer {
+    pub fn new() -> Self { Self { width: None, height: None } }
+    pub fn width(mut self, w: f32) -> Self { self.width = Some(w); self }
+    pub fn height(mut self, h: f32) -> Self { self.height = Some(h); self }
+}
+impl Widget for Spacer {
+    fn serialize(&self) -> Value {
+        json!({
+            "type": "Ivy.Spacer",
+            "id": uuid::Uuid::new_v4().to_string(),
+            "props": {
+                "width": self.width.map(|w| format!("Units:{}", w)),
+                "height": self.height.map(|h| format!("Units:{}", h)),
+            },
+            "events": [],
+            "children": []
+        })
+    }
+}
+
+#[derive(Debug)]
+pub struct Badge {
+    pub content: String,
+}
+impl Badge {
+    pub fn new(content: String) -> Self { Self { content } }
+}
+impl Widget for Badge {
+    fn serialize(&self) -> Value {
+        json!({
+            "type": "Ivy.Badge",
+            "id": uuid::Uuid::new_v4().to_string(),
+            "props": {
+                "content": self.content
+            },
+            "events": [],
+            "children": []
+        })
+    }
+}

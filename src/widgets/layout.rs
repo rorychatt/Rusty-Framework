@@ -1,7 +1,15 @@
-use crate::widgets::{Widget, Text, Card, Logo, Separator, Confetti, TextInput};
+use crate::widgets::Widget;
+
+#[derive(Debug, PartialEq)]
+pub enum LayoutKind {
+    Horizontal,
+    Vertical,
+    Grid { columns: u32 },
+}
 
 #[derive(Debug)]
 pub struct Layout {
+    pub kind: LayoutKind,
     pub children: Vec<Box<dyn Widget>>,
     pub centering: bool,
     pub gap: f32,
@@ -11,10 +19,20 @@ pub struct Layout {
 
 impl Layout {
     pub fn center() -> Self {
-        Self { children: vec![], centering: true, gap: 0.0, padding: 0.0, width: None }
+        Self { kind: LayoutKind::Vertical, children: vec![], centering: true, gap: 4.0, padding: 0.0, width: None }
     }
     pub fn vertical() -> Self {
-        Self { children: vec![], centering: false, gap: 0.0, padding: 0.0, width: None }
+        Self { kind: LayoutKind::Vertical, children: vec![], centering: false, gap: 4.0, padding: 0.0, width: None }
+    }
+    pub fn horizontal() -> Self {
+        Self { kind: LayoutKind::Horizontal, children: vec![], centering: false, gap: 4.0, padding: 0.0, width: None }
+    }
+    pub fn grid() -> Self {
+        Self { kind: LayoutKind::Grid { columns: 1 }, children: vec![], centering: false, gap: 4.0, padding: 0.0, width: None }
+    }
+    pub fn columns(mut self, columns: u32) -> Self {
+        self.kind = LayoutKind::Grid { columns };
+        self
     }
     pub fn gap(mut self, gap: f32) -> Self { self.gap = gap; self }
     pub fn padding(mut self, padding: f32) -> Self { self.padding = padding; self }
@@ -23,19 +41,42 @@ impl Layout {
 
 impl Widget for Layout {
     fn serialize(&self) -> serde_json::Value {
-        serde_json::json!({
-            "type": "Ivy.StackLayout",
-            "id": uuid::Uuid::new_v4().to_string(),
-            "props": {
-                "centering": self.centering,
-                "align": if self.centering { Some("Center") } else { None },
-                "gap": self.gap,
-                "padding": self.padding.to_string(),
-                "width": self.width.map(|w| format!("Units:{}", w))
-            },
-            "events": [],
-            "children": self.children.iter().map(|c| c.serialize()).collect::<Vec<_>>()
-        })
+        match self.kind {
+            LayoutKind::Grid { columns } => {
+                serde_json::json!({
+                    "type": "Ivy.GridLayout",
+                    "id": uuid::Uuid::new_v4().to_string(),
+                    "props": {
+                        "columns": columns,
+                        "rowGap": self.gap,
+                        "columnGap": self.gap,
+                        "padding": format!("{},{},{},{}", self.padding, self.padding, self.padding, self.padding),
+                        "width": self.width.as_ref().map(|w| format!("Units:{}", w))
+                    },
+                    "events": [],
+                    "children": self.children.iter().map(|c| c.serialize()).collect::<Vec<_>>()
+                })
+            }
+            _ => {
+                serde_json::json!({
+                    "type": "Ivy.StackLayout",
+                    "id": uuid::Uuid::new_v4().to_string(),
+                    "props": {
+                        "orientation": match self.kind {
+                            LayoutKind::Horizontal => "Horizontal",
+                            _ => "Vertical",
+                        },
+                        "align": if self.centering { Some("Center") } else { None },
+                        "rowGap": self.gap,
+                        "columnGap": self.gap,
+                        "padding": format!("{},{},{},{}", self.padding, self.padding, self.padding, self.padding),
+                        "width": self.width.as_ref().map(|w| format!("Units:{}", w))
+                    },
+                    "events": [],
+                    "children": self.children.iter().map(|c| c.serialize()).collect::<Vec<_>>()
+                })
+            }
+        }
     }
 }
 
@@ -47,55 +88,25 @@ impl std::ops::BitOr<Box<dyn Widget>> for Layout {
     }
 }
 
-impl std::ops::BitOr<Text> for Layout {
+// Helper trait to allow BitOr with any Widget
+pub trait IntoBoxedWidget {
+    fn into_boxed(self) -> Box<dyn Widget>;
+}
+
+impl<T: Widget + 'static> IntoBoxedWidget for T {
+    fn into_boxed(self) -> Box<dyn Widget> {
+        Box::new(self)
+    }
+}
+
+impl<T: Widget + 'static> std::ops::BitOr<T> for Layout {
     type Output = Layout;
-    fn bitor(mut self, rhs: Text) -> Self::Output {
+    fn bitor(mut self, rhs: T) -> Self::Output {
         self.children.push(Box::new(rhs));
         self
     }
 }
 
-impl std::ops::BitOr<Card> for Layout {
-    type Output = Layout;
-    fn bitor(mut self, rhs: Card) -> Self::Output {
-        self.children.push(Box::new(rhs));
-        self
-    }
-}
-
-impl std::ops::BitOr<Logo> for Layout {
-    type Output = Layout;
-    fn bitor(mut self, rhs: Logo) -> Self::Output {
-        self.children.push(Box::new(rhs));
-        self
-    }
-}
-
-impl std::ops::BitOr<Separator> for Layout {
-    type Output = Layout;
-    fn bitor(mut self, rhs: Separator) -> Self::Output {
-        self.children.push(Box::new(rhs));
-        self
-    }
-}
-
-impl std::ops::BitOr<Confetti> for Layout {
-    type Output = Layout;
-    fn bitor(mut self, rhs: Confetti) -> Self::Output {
-        self.children.push(Box::new(rhs));
-        self
-    }
-}
-
-impl std::ops::BitOr<TextInput> for Layout {
-    type Output = Layout;
-    fn bitor(mut self, rhs: TextInput) -> Self::Output {
-        self.children.push(Box::new(rhs));
-        self
-    }
-}
-
-// Convert Layout to Box<dyn Widget>
 impl From<Layout> for Box<dyn Widget> {
     fn from(l: Layout) -> Self {
         Box::new(l)

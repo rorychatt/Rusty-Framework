@@ -9,6 +9,10 @@ pub struct Signal<T> {
 }
 
 impl<T: Clone + Serialize + for<'de> Deserialize<'de>> Signal<T> {
+    pub fn new(initial: T) -> Self {
+        Self::use_state(uuid::Uuid::new_v4().to_string(), initial)
+    }
+
     pub fn use_state(id: String, initial: T) -> Self {
         Self {
             id,
