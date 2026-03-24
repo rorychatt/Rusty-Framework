@@ -15,8 +15,6 @@ pub fn transpile_string(source: &str) -> Result<String, Box<dyn std::error::Erro
     let tree = parser.parse(source, None).ok_or("Failed to parse")?;
     
     let mut out = String::new();
-    // out.push_str("use rusty_framework::prelude::*;\n\n"); // Removed to avoid duplicate in main.rs include
-    
     let mut found = false;
     transpile_node_recursive(tree.root_node(), source, &mut out, &mut found)?;
     
@@ -25,30 +23,37 @@ pub fn transpile_string(source: &str) -> Result<String, Box<dyn std::error::Erro
 
 fn transpile_node_recursive(node: Node, source: &str, out: &mut String, found_class: &mut bool) -> Result<(), Box<dyn std::error::Error>> {
     let kind = node.kind();
+    
     if kind == "class_declaration" && !*found_class {
         let mut name_node = None;
         for i in 0..node.child_count() {
             let child = node.child(i).unwrap();
             let k = child.kind();
-            if k == "identifier" || k == "identifier_name" { name_node = Some(child); break; }
+            if k == "identifier" || k == "identifier_name" { 
+                if name_node.is_none() { name_node = Some(child); }
+            }
         }
+        
         if let Some(n) = name_node {
             let class_name = &source[n.start_byte()..n.end_byte()];
             *found_class = true;
-            out.push_str(&format!("#[allow(non_snake_case)]\n"));
+            
+            let mut signals = Vec::new();
+            // Search deeply for fields and methods in this class
+            find_members(node, source, &mut signals, out);
+
+            // Wrap in struct/impl
+            let members_code = out.clone();
+            out.clear();
+            out.push_str("use rusty_framework::prelude::*;\n\n");
+            out.push_str("#[allow(non_snake_case)]\n");
+            out.push_str("#[allow(unused_variables)]\n");
             out.push_str(&format!("pub struct {};\n\n", class_name));
             out.push_str(&format!("impl {} {{\n", class_name));
-            for i in 0..node.child_count() {
-                let child = node.child(i).unwrap();
-                if child.kind() == "declaration_list" || child.kind() == "class_body" {
-                    for j in 0..child.child_count() {
-                        let member = child.child(j).unwrap();
-                        if member.kind() == "method_declaration" {
-                            process_method(member, source, out);
-                        }
-                    }
-                }
+            for s in signals {
+                out.push_str(&format!("        // Signal placeholder for {}\n", s));
             }
+            out.push_str(&members_code);
             out.push_str("}\n");
         }
     } else {
@@ -60,7 +65,51 @@ fn transpile_node_recursive(node: Node, source: &str, out: &mut String, found_cl
     Ok(())
 }
 
-fn process_method(member: Node, source: &str, out: &mut String) {
+fn find_members(node: Node, source: &str, signals: &mut Vec<String>, out: &mut String) {
+    for i in 0..node.child_count() {
+        let child = node.child(i).unwrap();
+        let kind = child.kind();
+        if kind == "field_declaration" {
+            collect_signals(child, source, signals);
+        } else if kind == "method_declaration" {
+            process_method(child, source, out, signals);
+        } else {
+            find_members(child, source, signals, out);
+        }
+        // If we found a class nested inside, we don't want to transpile it as members of the outer class
+        // but for this project we assume simple structures.
+    }
+}
+
+fn collect_signals(member: Node, source: &str, signals: &mut Vec<String>) {
+    // Search for variable_declarator anywhere inside field_declaration
+    search_for_signals(member, source, signals);
+}
+
+fn search_for_signals(node: Node, source: &str, signals: &mut Vec<String>) {
+    if node.kind() == "variable_declarator" {
+        let mut name = None;
+        let mut is_signal = false;
+        for i in 0..node.child_count() {
+            let c = node.child(i).unwrap();
+            let ck = c.kind();
+            if ck == "identifier" { name = Some(&source[c.start_byte()..c.end_byte()]); }
+            else if ck == "equals_value_clause" {
+                let text = &source[c.start_byte()..c.end_byte()];
+                if text.contains("Signal") || text.contains("UseState") { is_signal = true; }
+            }
+        }
+        if let (Some(n), true) = (name, is_signal) {
+            signals.push(n.to_string());
+        }
+    } else {
+        for i in 0..node.child_count() {
+            search_for_signals(node.child(i).unwrap(), source, signals);
+        }
+    }
+}
+
+fn process_method(member: Node, source: &str, out: &mut String, signals: &[String]) {
     let mut m_name_node = None;
     for k in 0..member.child_count() {
         let sub = member.child(k).unwrap();
@@ -71,10 +120,18 @@ fn process_method(member: Node, source: &str, out: &mut String) {
         let method_name = &source[m_node.start_byte()..m_node.end_byte()];
         if method_name == "Build" {
             out.push_str("    pub fn build() -> Box<dyn Widget> {\n");
+            for s in signals {
+                out.push_str(&format!("        let {} = Signal::use_state(\"\".to_string());\n", s));
+            }
             for k in 0..member.child_count() {
                 let sub = member.child(k).unwrap();
-                if sub.kind() == "block" || sub.kind() == "arrow_expression_clause" {
+                if sub.kind() == "block" {
                     transpile_body(sub, source, out, 2);
+                    break;
+                } else if sub.kind() == "arrow_expression_clause" {
+                    out.push_str("        let result = ");
+                    transpile_expr(sub.child(1).unwrap(), source, out, 2);
+                    out.push_str(";\n        Box::new(result)\n");
                     break;
                 }
             }
@@ -95,34 +152,25 @@ fn transpile_body(node: Node, source: &str, out: &mut String, indent: usize) {
                 for j in 0..decl.child_count() {
                     let sub = decl.child(j).unwrap();
                     if sub.kind() == "variable_declarator" {
-                        let n_node = sub.child_by_field_name("name").or_else(|| {
-                             for k in 0..sub.child_count() {
-                                 let c = sub.child(k).unwrap();
-                                 if c.kind() == "identifier" { return Some(c); }
+                         let mut name = None;
+                         let mut is_signal = false;
+                         for k in 0..sub.child_count() {
+                             let c = sub.child(k).unwrap();
+                             let ck = c.kind();
+                             if ck == "identifier" { name = Some(&source[c.start_byte()..c.end_byte()]); }
+                             else if ck == "equals_value_clause" {
+                                 let text = &source[c.start_byte()..c.end_byte()];
+                                 if text.contains("UseState") || text.contains("Signal") { is_signal = true; }
                              }
-                             None
-                        });
-                        if let Some(name_node) = n_node {
-                            let name = &source[name_node.start_byte()..name_node.end_byte()];
-                            let init_node = sub.child_by_field_name("value").or_else(|| {
-                                 for k in 0..sub.child_count() {
-                                     let c = sub.child(k).unwrap();
-                                     if c.kind() == "equals_value_clause" { return Some(c.child(1).unwrap()); }
-                                 }
-                                 None
-                            });
-                            if let Some(init) = init_node {
-                                let init_text = &source[init.start_byte()..init.end_byte()];
-                                if init_text.contains("UseState") {
-                                    out.push_str(&format!("{}let {} = Signal::use_state(\"\".to_string());\n", pad, name));
-                                }
-                            }
-                        }
+                         }
+                         if let (Some(n), true) = (name, is_signal) {
+                             out.push_str(&format!("{}let {} = Signal::use_state(\"\".to_string());\n", pad, n));
+                         }
                     }
                 }
             }
             "return_statement" => {
-                out.push_str(&format!("{}let result = ", pad));
+                out.push_str(&format!("\n{}let result = ", pad));
                 if let Some(expr) = child.child_by_field_name("expression").or_else(|| {
                       for k in 0..child.child_count() {
                           let c = child.child(k).unwrap();
@@ -132,7 +180,7 @@ fn transpile_body(node: Node, source: &str, out: &mut String, indent: usize) {
                 }) {
                     transpile_expr(expr, source, out, indent + 1);
                 }
-                out.push_str(&format!(";\n{}Box::new(result)\n", pad));
+                out.push_str(&format!("\n        Box::new(result)\n"));
             }
             "expression_statement" => { 
                 transpile_body(child, source, out, indent); 
@@ -205,6 +253,8 @@ fn transpile_expr(node: Node, source: &str, out: &mut String, indent: usize) {
                 out.push_str("Confetti::new(Box::new(");
                 if let Some(a) = node.child_by_field_name("arguments") { transpile_args(a, source, out, false); }
                 out.push_str("))");
+            } else if name.contains("Signal") {
+                 out.push_str("Signal::use_state(\"\".to_string())");
             } else if name == "Logo" || name == "Separator" {
                 out.push_str(name);
             } else { out.push_str("Separator"); }
@@ -213,6 +263,28 @@ fn transpile_expr(node: Node, source: &str, out: &mut String, indent: usize) {
             let text = &source[node.start_byte()..node.end_byte()];
             out.push_str(text);
             if kind.contains("string") { out.push_str(".to_string()"); }
+        }
+        "interpolated_string_expression" => {
+             out.push_str("format!(\"");
+             let mut fmts = Vec::new();
+             let mut arg_nodes = Vec::new();
+             for i in 0..node.child_count() {
+                let child = node.child(i).unwrap();
+                let ck = child.kind();
+                if ck == "interpolated_string_text" {
+                    fmts.push(source[child.start_byte()..child.end_byte()].to_string());
+                } else if ck == "interpolation" {
+                    fmts.push("{}".to_string());
+                    arg_nodes.push(child.child(1).unwrap());
+                }
+             }
+             for f in fmts { out.push_str(&f); }
+             out.push_str("\", ");
+             for (i, a) in arg_nodes.iter().enumerate() {
+                 if i > 0 { out.push_str(", "); }
+                 transpile_expr(*a, source, out, 0);
+             }
+             out.push_str(")");
         }
         "parenthesized_expression" => {
             out.push_str("(");
@@ -266,9 +338,12 @@ fn transpile_args(args: Node, source: &str, out: &mut String, as_float: bool) {
 mod tests {
     use super::*;
     #[test]
-    fn test_minimal_app() {
-        let code = "public class MinApp : ViewBase { public override object Build() => Text.H2(\"Hi\"); }";
-        let rust = transpile_string(code).unwrap();
-        assert!(rust.contains("struct MinApp"));
+    fn test_field_collection() {
+        let code = r#"public class App { 
+            protected Signal<string> nameState = new Signal<string>(""); 
+            public override object Build() => Text.H2("Hi");
+        }"#;
+        let rust = transpile_string(code).expect("Failed to transpile");
+        assert!(rust.contains("let nameState = Signal::use_state"));
     }
 }

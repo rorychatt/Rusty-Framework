@@ -1,1 +1,6 @@
-/target
+target/
+bin/
+obj/
+*.user
+*.lock
+.DS_Store
