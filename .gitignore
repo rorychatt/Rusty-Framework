@@ -1,9 +1,0 @@
-/target
-/bin
-/obj
-/frontend/dist
-/src/generated_*
-**/bin/
-**/obj/
-*.lock
-.DS_Store
